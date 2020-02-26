@@ -107,16 +107,6 @@ where
     Ok(answer)
 }
 
-fn from_hex_header<'de, D>(deserializer: D) -> Result<block::BlockHeader, D::Error>
-where
-    D: de::Deserializer<'de>,
-{
-    use bitcoin::consensus::deserialize;
-
-    let vec: Vec<u8> = from_hex(deserializer)?;
-    deserialize(&vec).map_err(de::Error::custom)
-}
-
 /// Response to a [`script_get_history`](../client/struct.Client.html#method.script_get_history) request.
 #[derive(Debug, Deserialize)]
 pub struct GetHistoryRes {
@@ -200,7 +190,7 @@ pub struct HeaderNotification {
     /// New block height.
     pub height: usize,
     /// Newly added header.
-    #[serde(rename = "hex", deserialize_with = "from_hex_header")]
+    #[serde(rename = "hex")]
     pub header: block::BlockHeader,
 }
 
