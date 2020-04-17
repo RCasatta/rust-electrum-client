@@ -387,6 +387,14 @@ impl<S: Read + Write> Client<S> {
         Ok(serde_json::from_value(value)?)
     }
 
+    /// Subscribes to notifications for new block headers, by sending a `blockchain.headers.subscribe` call.
+    pub fn block_headers_subscribe_raw(&mut self) -> Result<HeaderNotificationRaw, Error> {
+        let req = Request::new("blockchain.headers.subscribe", vec![]);
+        let value = self.call(req)?;
+
+        Ok(serde_json::from_value(value)?)
+    }
+
     /// Tries to pop one queued notification for a new block header that we might have received.
     /// Returns `None` if there are no items in the queue.
     pub fn block_headers_poll(&mut self) -> Result<Option<HeaderNotification>, Error> {

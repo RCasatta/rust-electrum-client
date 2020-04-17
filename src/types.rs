@@ -208,6 +208,16 @@ pub struct HeaderNotification {
     pub header: block::BlockHeader,
 }
 
+
+/// Notification of a new block header
+#[derive(Debug, Deserialize)]
+pub struct HeaderNotificationRaw {
+    /// New block height.
+    pub height: usize,
+    /// Newly added header.
+    pub hex: String,
+}
+
 /// Notification of the new status of a script
 #[derive(Debug, Deserialize)]
 pub struct ScriptNotification {
