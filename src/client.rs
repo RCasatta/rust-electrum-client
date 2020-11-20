@@ -1,5 +1,7 @@
 //! Electrum Client
 
+use log::warn;
+
 use bitcoin::{Script, Txid};
 
 use api::ElectrumApi;
@@ -90,7 +92,10 @@ macro_rules! impl_inner_call {
             };
             match res {
                 Ok(val) => return Ok(val),
-                Err(err) => errors.push(err),
+                Err(err) => {
+                    warn!("retry:{} {:?}", count, err);
+                    errors.push(err)
+                },
             }
             std::thread::sleep(std::time::Duration::from_secs(count as u64));
         }}
