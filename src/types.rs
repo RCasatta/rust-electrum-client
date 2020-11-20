@@ -288,6 +288,8 @@ pub enum Error {
     MissingDomain,
     /// SSL over a socks5 proxy is currently not supported
     SSLOverSocks5,
+    /// Made one or multiple attempts, always in Error
+    AllAttemptsErrored(Vec<Error>),
 
     /// Couldn't take a lock on the reader mutex. This means that there's already another reader
     /// thread running

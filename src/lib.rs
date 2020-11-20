@@ -1,4 +1,4 @@
-#![warn(missing_docs)]
+//#![warn(missing_docs)]
 
 //! This library provides an extendable Bitcoin-Electrum client that supports batch calls,
 //! notifications and multiple transport methods.
@@ -14,7 +14,7 @@
 //! ```no_run
 //! use electrum_client::{Client, ElectrumApi};
 //!
-//! let mut client = Client::new("tcp://electrum.blockstream.info:50001", None)?;
+//! let mut client = Client::new("tcp://electrum.blockstream.info:50001")?;
 //! let response = client.server_features()?;
 //! # Ok::<(), electrum_client::Error>(())
 //! ```

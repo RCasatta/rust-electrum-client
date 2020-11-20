@@ -33,6 +33,7 @@ use stream::ClonableStream;
 use api::ElectrumApi;
 use batch::Batch;
 use types::*;
+use Socks5Config;
 
 macro_rules! impl_batch_call {
     ( $self:expr, $data:expr, $call:ident ) => {{
@@ -41,7 +42,7 @@ macro_rules! impl_batch_call {
             batch.$call(i);
         }
 
-        let resp = $self.batch_call(batch)?;
+        let resp = $self.batch_call(&batch)?;
         let mut answer = Vec::new();
 
         for x in resp {
@@ -276,12 +277,16 @@ impl RawClient<ElectrumProxyStream> {
     /// Creates a new socks client and tries to connect to `target_addr` using `proxy_addr` as an
     /// unauthenticated socks proxy server. The DNS resolution of `target_addr`, if required, is done
     /// through the proxy. This allows to specify, for instance, `.onion` addresses.
-    pub fn new_proxy<A: ToSocketAddrs, T: ToTargetAddr>(
-        target_addr: T,
-        proxy_addr: A,
-    ) -> Result<Self, Error> {
-        // TODO: support proxy credentials
-        let stream = Socks5Stream::connect(proxy_addr, target_addr)?;
+    pub fn new_proxy<T: ToTargetAddr>(target_addr: T, proxy: &Socks5Config) -> Result<Self, Error> {
+        let stream = match proxy.credentials.as_ref() {
+            Some(cred) => Socks5Stream::connect_with_password(
+                &proxy.addr,
+                target_addr,
+                &cred.username,
+                &cred.password,
+            )?,
+            None => Socks5Stream::connect(&proxy.addr, target_addr)?,
+        };
 
         Ok(stream.into())
     }
@@ -507,7 +512,7 @@ impl<S: Read + Write> RawClient<S> {
 }
 
 impl<T: Read + Write> ElectrumApi for RawClient<T> {
-    fn batch_call(&self, batch: Batch) -> Result<Vec<serde_json::Value>, Error> {
+    fn batch_call(&self, batch: &Batch) -> Result<Vec<serde_json::Value>, Error> {
         let mut raw = Vec::new();
 
         let mut missing_responses = HashSet::new();
@@ -517,8 +522,12 @@ impl<T: Read + Write> ElectrumApi for RawClient<T> {
         // for every request id, so that we only have to monitor one receiver.
         let (sender, receiver) = channel();
 
-        for (method, params) in batch.into_iter() {
-            let req = Request::new_id(self.last_id.fetch_add(1, Ordering::SeqCst), &method, params);
+        for (method, params) in batch.iter() {
+            let req = Request::new_id(
+                self.last_id.fetch_add(1, Ordering::SeqCst),
+                &method,
+                params.to_vec(),
+            );
             missing_responses.insert(req.id);
 
             self.waiting_map
@@ -715,7 +724,7 @@ impl<T: Read + Write> ElectrumApi for RawClient<T> {
     }
     fn batch_script_get_balance<'s, I>(&self, scripts: I) -> Result<Vec<GetBalanceRes>, Error>
     where
-        I: IntoIterator<Item = &'s Script>,
+        I: IntoIterator<Item = &'s Script> + Clone,
     {
         impl_batch_call!(self, scripts, script_get_balance)
     }
@@ -733,7 +742,7 @@ impl<T: Read + Write> ElectrumApi for RawClient<T> {
     }
     fn batch_script_get_history<'s, I>(&self, scripts: I) -> Result<Vec<Vec<GetHistoryRes>>, Error>
     where
-        I: IntoIterator<Item = &'s Script>,
+        I: IntoIterator<Item = &'s Script> + Clone,
     {
         impl_batch_call!(self, scripts, script_get_history)
     }
@@ -761,7 +770,7 @@ impl<T: Read + Write> ElectrumApi for RawClient<T> {
         scripts: I,
     ) -> Result<Vec<Vec<ListUnspentRes>>, Error>
     where
-        I: IntoIterator<Item = &'s Script>,
+        I: IntoIterator<Item = &'s Script> + Clone,
     {
         impl_batch_call!(self, scripts, script_list_unspent)
     }
@@ -784,7 +793,7 @@ impl<T: Read + Write> ElectrumApi for RawClient<T> {
 
     fn batch_transaction_get_raw<'t, I>(&self, txids: I) -> Result<Vec<Vec<u8>>, Error>
     where
-        I: IntoIterator<Item = &'t Txid>,
+        I: IntoIterator<Item = &'t Txid> + Clone,
     {
         let txs_string: Result<Vec<String>, Error> = impl_batch_call!(self, txids, transaction_get);
         txs_string?
@@ -795,7 +804,7 @@ impl<T: Read + Write> ElectrumApi for RawClient<T> {
 
     fn batch_block_header_raw<'s, I>(&self, heights: I) -> Result<Vec<Vec<u8>>, Error>
     where
-        I: IntoIterator<Item = u32>,
+        I: IntoIterator<Item = u32> + Clone,
     {
         let headers_string: Result<Vec<String>, Error> =
             impl_batch_call!(self, heights, block_header);
@@ -807,7 +816,7 @@ impl<T: Read + Write> ElectrumApi for RawClient<T> {
 
     fn batch_estimate_fee<'s, I>(&self, numbers: I) -> Result<Vec<f64>, Error>
     where
-        I: IntoIterator<Item = usize>,
+        I: IntoIterator<Item = usize> + Clone,
     {
         impl_batch_call!(self, numbers, estimate_fee)
     }
