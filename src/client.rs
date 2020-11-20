@@ -7,6 +7,7 @@ use bitcoin::{Script, Txid};
 use api::ElectrumApi;
 use batch::Batch;
 use raw_client::*;
+use std::sync::Mutex;
 use types::*;
 
 /// Generalized Electrum client that supports multiple backends. This wraps
@@ -24,8 +25,9 @@ pub enum ClientType {
 }
 
 pub struct Client {
-    client_type: ClientType,
+    client_type: Mutex<ClientType>,
     config: Config,
+    url: String,
 }
 
 #[derive(Debug, Clone)]
@@ -85,7 +87,8 @@ macro_rules! impl_inner_call {
                 return Err(Error::AllAttemptsErrored(errors));
             }
             count += 1;
-            let res = match &$self.client_type {
+            let mut c = $self.client_type.lock().unwrap();
+            let res = match &*c {
                 ClientType::TCP(inner) => inner.$name( $($args, )* ),
                 ClientType::SSL(inner) => inner.$name( $($args, )* ),
                 ClientType::Socks5(inner) => inner.$name( $($args, )* ),
@@ -94,11 +97,36 @@ macro_rules! impl_inner_call {
                 Ok(val) => return Ok(val),
                 Err(err) => {
                     warn!("retry:{} {:?}", count, err);
-                    errors.push(err)
+                    errors.push(err);
+                    (*c) = ClientType::from_config(&$self.url, &$self.config)?;
                 },
             }
+            drop(c);
             std::thread::sleep(std::time::Duration::from_secs(count as u64));
         }}
+    }
+}
+
+impl ClientType {
+    pub fn from_config(url: &str, config: &Config) -> Result<Self, Error> {
+        // let socks5 = socks5.map(|s| s.replacen("socks5://", "", 1)); TODO move in Socks5Config
+
+        if url.starts_with("ssl://") {
+            if config.socks5.is_some() {
+                return Err(Error::SSLOverSocks5);
+            }
+
+            let url = url.replacen("ssl://", "", 1);
+            let client = RawClient::new_ssl(url.as_str(), true)?;
+            Ok(ClientType::SSL(client))
+        } else {
+            let url = url.replacen("tcp://", "", 1);
+
+            Ok(match config.socks5.as_ref() {
+                None => ClientType::TCP(RawClient::new(url.as_str())?),
+                Some(socks5) => ClientType::Socks5(RawClient::new_proxy(url.as_str(), socks5)?),
+            })
+        }
     }
 }
 
@@ -123,33 +151,14 @@ impl Client {
     /// **NOTE**: SSL-over-socks5 is currently not supported and will generate a runtime error.
     ///
     pub fn from_config(url: &str, config: Config) -> Result<Self, Error> {
-        // let socks5 = socks5.map(|s| s.replacen("socks5://", "", 1)); move in Socks5Config
 
-        if url.starts_with("ssl://") {
-            if config.socks5.is_some() {
-                return Err(Error::SSLOverSocks5);
-            }
+        let client_type = Mutex::new(ClientType::from_config(url, &config)?);
 
-            let url = url.replacen("ssl://", "", 1);
-            let client = RawClient::new_ssl(url.as_str(), true)?;
-
-            Ok(Client {
-                client_type: ClientType::SSL(client),
-                config,
-            })
-        } else {
-            let url = url.replacen("tcp://", "", 1);
-
-            let client_type = match config.socks5.as_ref() {
-                None => ClientType::TCP(RawClient::new(url.as_str())?),
-                Some(socks5) => ClientType::Socks5(RawClient::new_proxy(url.as_str(), socks5)?),
-            };
-
-            Ok(Client {
-                client_type,
-                config,
-            })
-        }
+        Ok(Client {
+            client_type,
+            config,
+            url: url.to_string(),
+        })
     }
 }
 
