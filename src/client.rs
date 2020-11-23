@@ -1,6 +1,6 @@
 //! Electrum Client
 
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use log::warn;
 
@@ -10,8 +10,8 @@ use api::ElectrumApi;
 use batch::Batch;
 use raw_client::*;
 
-use types::*;
 use config::Config;
+use types::*;
 
 /// Generalized Electrum client that supports multiple backends. This wraps
 /// [`RawClient`](client/struct.RawClient.html) and provides a more user-friendly
@@ -28,7 +28,7 @@ pub enum ClientType {
 }
 
 pub struct Client {
-    client_type: Mutex<ClientType>,
+    client_type: RwLock<ClientType>,
     config: Config,
     url: String,
 }
@@ -43,21 +43,23 @@ macro_rules! impl_inner_call {
                 return Err(Error::AllAttemptsErrored(errors));
             }
             count += 1;
-            let mut c = $self.client_type.lock().unwrap();
-            let res = match &*c {
+            let read_client = $self.client_type.read().unwrap();
+            let res = match &*read_client {
                 ClientType::TCP(inner) => inner.$name( $($args, )* ),
                 ClientType::SSL(inner) => inner.$name( $($args, )* ),
                 ClientType::Socks5(inner) => inner.$name( $($args, )* ),
             };
+            drop(read_client);
             match res {
                 Ok(val) => return Ok(val),
                 Err(err) => {
+                    let mut write_client = $self.client_type.write().unwrap();
                     warn!("retry:{} {:?}", count, err);
                     errors.push(err);
-                    (*c) = ClientType::from_config(&$self.url, &$self.config)?;
+                    (*write_client) = ClientType::from_config(&$self.url, &$self.config)?;
                 },
             }
-            drop(c);
+
             std::thread::sleep(std::time::Duration::from_secs(count as u64));
         }}
     }
@@ -107,8 +109,7 @@ impl Client {
     /// **NOTE**: SSL-over-socks5 is currently not supported and will generate a runtime error.
     ///
     pub fn from_config(url: &str, config: Config) -> Result<Self, Error> {
-
-        let client_type = Mutex::new(ClientType::from_config(url, &config)?);
+        let client_type = RwLock::new(ClientType::from_config(url, &config)?);
 
         Ok(Client {
             client_type,

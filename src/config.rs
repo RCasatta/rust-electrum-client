@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone)]
 pub struct Config {
     pub socks5: Option<Socks5Config>,
