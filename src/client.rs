@@ -83,7 +83,8 @@ impl ClientType {
             }
 
             let url = url.replacen("ssl://", "", 1);
-            let client = RawClient::new_ssl(url.as_str(), config.validate_domain(), config.timeout())?;
+            let client =
+                RawClient::new_ssl(url.as_str(), config.validate_domain(), config.timeout())?;
             Ok(ClientType::SSL(client))
         } else {
             let url = url.replacen("tcp://", "", 1);

@@ -1,5 +1,5 @@
-use std::time::Duration;
 use crate::Error;
+use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct Config {
