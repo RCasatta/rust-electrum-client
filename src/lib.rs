@@ -60,4 +60,5 @@ pub use batch::Batch;
     all(feature = "proxy", feature = "use-rustls")
 ))]
 pub use client::*;
+pub use config::{ConfigBuilder, Socks5Config};
 pub use types::*;

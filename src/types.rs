@@ -290,6 +290,8 @@ pub enum Error {
     SSLOverSocks5,
     /// Made one or multiple attempts, always in Error
     AllAttemptsErrored(Vec<Error>),
+    /// There was an error transmitted from the reader thread to others
+    ChannelError,
 
     /// Couldn't take a lock on the reader mutex. This means that there's already another reader
     /// thread running

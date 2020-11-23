@@ -1,13 +1,12 @@
 extern crate electrum_client;
 
-use electrum_client::{Client, Config, ElectrumApi, Socks5Config};
+use electrum_client::{Client, ConfigBuilder, ElectrumApi, Socks5Config};
 
 fn main() {
     // NOTE: This assumes Tor is running localy, with an unauthenticated Socks5 listening at
     // localhost:9050
     let proxy = Socks5Config::new("127.0.0.1:9050");
-    let mut config = Config::default();
-    config.socks5 = Some(proxy);
+    let config = ConfigBuilder::new().socks5(proxy).build();
 
     let client = Client::from_config("tcp://explorernuoc63nb.onion:110", config.clone()).unwrap();
     let res = client.server_features();

@@ -39,7 +39,7 @@ macro_rules! impl_inner_call {
         let mut count = 0;
         let mut errors = Vec::with_capacity(count as usize);
         loop {
-            if count == $self.config.retry {
+            if count == $self.config.retry() {
                 return Err(Error::AllAttemptsErrored(errors));
             }
             count += 1;
@@ -52,11 +52,19 @@ macro_rules! impl_inner_call {
             drop(read_client);
             match res {
                 Ok(val) => return Ok(val),
-                Err(err) => {
-                    let mut write_client = $self.client_type.write().unwrap();
-                    warn!("retry:{} {:?}", count, err);
-                    errors.push(err);
-                    (*write_client) = ClientType::from_config(&$self.url, &$self.config)?;
+                Err(Error::Protocol(e)) => {
+                    warn!("Error::Protocol {:?}", e);
+                    continue
+                },
+                Err(e) => {
+                    match $self.client_type.try_write() {
+                        Ok(mut write_client) => {
+                            warn!("retry:{} {:?}", count, e);
+                            errors.push(e);
+                            (*write_client) = ClientType::from_config(&$self.url, &$self.config)?;
+                        },
+                        Err(_) => (),  // another thread is trying to retrying the client
+                    }
                 },
             }
 
@@ -70,7 +78,7 @@ impl ClientType {
         // let socks5 = socks5.map(|s| s.replacen("socks5://", "", 1)); TODO move in Socks5Config
 
         if url.starts_with("ssl://") {
-            if config.socks5.is_some() {
+            if config.socks5().is_some() {
                 return Err(Error::SSLOverSocks5);
             }
 
@@ -80,7 +88,7 @@ impl ClientType {
         } else {
             let url = url.replacen("tcp://", "", 1);
 
-            Ok(match config.socks5.as_ref() {
+            Ok(match config.socks5().as_ref() {
                 None => ClientType::TCP(RawClient::new(url.as_str())?),
                 Some(socks5) => ClientType::Socks5(RawClient::new_proxy(url.as_str(), socks5)?),
             })

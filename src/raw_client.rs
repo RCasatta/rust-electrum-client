@@ -296,6 +296,7 @@ impl RawClient<ElectrumProxyStream> {
 enum ChannelMessage {
     Response(serde_json::Value),
     WakeUp,
+    Error,
 }
 
 impl<S: Read + Write> RawClient<S> {
@@ -341,7 +342,12 @@ impl<S: Read + Write> RawClient<S> {
                 loop {
                     raw_resp.clear();
 
-                    reader.read_line(&mut raw_resp)?;
+                    if let Err(_) = reader.read_line(&mut raw_resp) {
+                        for (_, s) in self.waiting_map.lock().unwrap().drain() {
+                            s.send(ChannelMessage::Error)
+                                .expect("Unable to send ChannelMessage::Error");
+                        }
+                    }
                     trace!("<== {}", raw_resp);
 
                     let resp: serde_json::Value = serde_json::from_str(&raw_resp)?;
@@ -468,6 +474,11 @@ impl<S: Read + Write> RawClient<S> {
                             trace!("WakeUp for {}", req_id);
 
                             continue;
+                        }
+                        Ok(ChannelMessage::Error) => {
+                            warn!("Received ChannelMessage::Error");
+
+                            break Err(Error::ChannelError);
                         }
                         e @ Err(_) => e.map(|_| ()).expect("Error receiving from channel"), // panic if there's something wrong with the channels
                     }
