@@ -69,17 +69,17 @@ impl ConfigBuilder {
 
 impl Socks5Config {
     pub fn new(addr: impl ToString) -> Self {
+        let addr = addr.to_string().replacen("socks5://", "", 1);
         Socks5Config {
-            addr: addr.to_string(),
+            addr,
             credentials: None,
         }
     }
 
     pub fn with_credentials(addr: String, username: String, password: String) -> Self {
-        Socks5Config {
-            addr,
-            credentials: Some(Socks5Credential { username, password }),
-        }
+        let mut config = Socks5Config::new(addr);
+        config.credentials = Some(Socks5Credential { username, password });
+        config
     }
 }
 

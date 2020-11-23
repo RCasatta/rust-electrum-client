@@ -75,8 +75,6 @@ macro_rules! impl_inner_call {
 
 impl ClientType {
     pub fn from_config(url: &str, config: &Config) -> Result<Self, Error> {
-        // let socks5 = socks5.map(|s| s.replacen("socks5://", "", 1)); TODO move in Socks5Config
-
         if url.starts_with("ssl://") {
             if config.socks5().is_some() {
                 return Err(Error::SSLOverSocks5);
