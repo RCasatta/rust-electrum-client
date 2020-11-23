@@ -5,7 +5,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::mem::drop;
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::{TcpStream, ToSocketAddrs, SocketAddr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Mutex, TryLockError};
@@ -34,6 +34,7 @@ use api::ElectrumApi;
 use batch::Batch;
 use config::Socks5Config;
 use types::*;
+use std::time::Duration;
 
 macro_rules! impl_batch_call {
     ( $self:expr, $data:expr, $call:ident ) => {{
@@ -132,10 +133,26 @@ where
 pub type ElectrumPlaintextStream = TcpStream;
 impl RawClient<ElectrumPlaintextStream> {
     /// Creates a new plaintext client and tries to connect to `socket_addr`.
-    pub fn new<A: ToSocketAddrs>(socket_addr: A) -> Result<Self, Error> {
-        let stream = TcpStream::connect(socket_addr)?;
+    pub fn new<A: ToSocketAddrs>(socket_addrs: A, timeout: Option<Duration>) -> Result<Self, Error> {
+        let stream = match timeout {
+            Some(timeout) => {
+                let socket_addr = get_one_socket_addr(socket_addrs)?;
+                TcpStream::connect_timeout(&socket_addr, timeout)?
+            },
+            None => TcpStream::connect(socket_addrs)?,
+        };
 
         Ok(stream.into())
+    }
+}
+
+fn get_one_socket_addr<A: ToSocketAddrs>(socket_addrs: A) -> Result<SocketAddr, Error> {
+    let mut socket_iter = socket_addrs.to_socket_addrs()?;
+    let socket_addr = socket_iter.next().ok_or(Error::WrongAddrsNumberWithTimeout)?;
+    // Unlike `connect`, `connect_timeout` takes a single [`SocketAddr`]
+    match socket_iter.next() {
+        None => Ok(socket_addr),
+        Some(_) => Err(Error::WrongAddrsNumberWithTimeout),
     }
 }
 
@@ -149,15 +166,19 @@ impl RawClient<ElectrumSslStream> {
     pub fn new_ssl<A: ToSocketAddrsDomain + Clone>(
         socket_addr: A,
         validate_domain: bool,
+        timeout: Option<Duration>,
     ) -> Result<Self, Error> {
         if validate_domain {
             socket_addr.domain().ok_or(Error::MissingDomain)?;
         }
-
+        let stream = match timeout {
+            Some(timeout) => TcpStream::connect_timeout(socket_addr, timeout)?,
+            None => TcpStream::connect(socket_addr)?
+        };
         Self::new_ssl_from_stream(
             socket_addr.clone(),
             validate_domain,
-            TcpStream::connect(socket_addr)?,
+            stream,
         )
     }
 
@@ -224,16 +245,24 @@ impl RawClient<ElectrumSslStream> {
     /// Creates a new SSL client and tries to connect to `socket_addr`. Optionally, if
     /// `validate_domain` is `true`, validate the server's certificate.
     pub fn new_ssl<A: ToSocketAddrsDomain + Clone>(
-        socket_addr: A,
+        socket_addrs: A,
         validate_domain: bool,
+        timeout: Option<Duration>,
     ) -> Result<Self, Error> {
         if validate_domain {
-            socket_addr.domain().ok_or(Error::MissingDomain)?;
+            socket_addrs.domain().ok_or(Error::MissingDomain)?;
         }
+        let stream = match timeout {
+            Some(timeout) => {
+                let socket_addr = get_one_socket_addr(socket_addrs.clone())?;
+                TcpStream::connect_timeout(&socket_addr, timeout)?
+            },
+            None => TcpStream::connect(socket_addrs.clone())?
+        };
         Self::new_ssl_from_stream(
-            socket_addr.clone(),
+            socket_addrs,
             validate_domain,
-            TcpStream::connect(socket_addr)?,
+            stream,
         )
     }
 

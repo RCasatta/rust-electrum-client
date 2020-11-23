@@ -83,13 +83,13 @@ impl ClientType {
             }
 
             let url = url.replacen("ssl://", "", 1);
-            let client = RawClient::new_ssl(url.as_str(), true)?;
+            let client = RawClient::new_ssl(url.as_str(), config.validate_domain(), config.timeout())?;
             Ok(ClientType::SSL(client))
         } else {
             let url = url.replacen("tcp://", "", 1);
 
             Ok(match config.socks5().as_ref() {
-                None => ClientType::TCP(RawClient::new(url.as_str())?),
+                None => ClientType::TCP(RawClient::new(url.as_str(), config.timeout())?),
                 Some(socks5) => ClientType::Socks5(RawClient::new_proxy(url.as_str(), socks5)?),
             })
         }

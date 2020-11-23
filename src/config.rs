@@ -1,8 +1,15 @@
+use std::time::Duration;
+use crate::Error;
+
 #[derive(Debug, Clone)]
 pub struct Config {
+    /// Proxy socks5 configuration, default None
     socks5: Option<Socks5Config>,
-    timeout: u32,
+    /// timeout in seconds, default None (depends on TcpStream default)
+    timeout: Option<Duration>,
+    /// number of retry if any error, default 1
     retry: u8,
+    /// when ssl, validate the domain, default true
     validate_domain: bool,
 }
 
@@ -29,14 +36,20 @@ impl ConfigBuilder {
         }
     }
 
-    pub fn socks5(mut self, socks5_config: Socks5Config) -> Self {
+    pub fn socks5(mut self, socks5_config: Socks5Config) -> Result<Self, Error> {
+        if self.config.timeout.is_some() {
+            return Err(Error::BothSocksAndTimeout);
+        }
         self.config.socks5 = Some(socks5_config);
-        self
+        Ok(self)
     }
 
-    pub fn timeout(mut self, timeout: u32) -> Self {
-        self.config.timeout = timeout;
-        self
+    pub fn timeout(mut self, timeout: u8) -> Result<Self, Error> {
+        if self.config.socks5.is_some() {
+            return Err(Error::BothSocksAndTimeout);
+        }
+        self.config.timeout = Some(Duration::from_secs(timeout as u64));
+        Ok(self)
     }
 
     pub fn retry(mut self, retry: u8) -> Self {
@@ -77,13 +90,19 @@ impl Config {
     pub fn retry(&self) -> u8 {
         self.retry
     }
+    pub fn timeout(&self) -> Option<Duration> {
+        self.timeout.clone()
+    }
+    pub fn validate_domain(&self) -> bool {
+        self.validate_domain
+    }
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
             socks5: None,
-            timeout: 15,
+            timeout: None,
             retry: 1,
             validate_domain: true,
         }
