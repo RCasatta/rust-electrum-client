@@ -47,6 +47,8 @@ mod batch;
 ))]
 pub mod client;
 
+mod config;
+
 pub mod raw_client;
 mod stream;
 mod types;

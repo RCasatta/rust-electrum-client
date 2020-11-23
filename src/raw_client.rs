@@ -33,7 +33,7 @@ use stream::ClonableStream;
 use api::ElectrumApi;
 use batch::Batch;
 use types::*;
-use Socks5Config;
+use config::Socks5Config;
 
 macro_rules! impl_batch_call {
     ( $self:expr, $data:expr, $call:ident ) => {{
