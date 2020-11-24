@@ -921,7 +921,7 @@ mod test {
 
     #[test]
     fn test_server_features_simple() {
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         let resp = client.server_features().unwrap();
         assert_eq!(
@@ -936,7 +936,7 @@ mod test {
     }
     #[test]
     fn test_relay_fee() {
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         let resp = client.relay_fee().unwrap();
         assert_eq!(resp, 0.00001);
@@ -944,7 +944,7 @@ mod test {
 
     #[test]
     fn test_estimate_fee() {
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         let resp = client.estimate_fee(10).unwrap();
         assert!(resp > 0.0);
@@ -952,7 +952,7 @@ mod test {
 
     #[test]
     fn test_block_header() {
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         let resp = client.block_header(0).unwrap();
         assert_eq!(resp.version, 0x01);
@@ -962,7 +962,7 @@ mod test {
 
     #[test]
     fn test_block_header_raw() {
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         let resp = client.block_header_raw(0).unwrap();
         assert_eq!(
@@ -978,7 +978,7 @@ mod test {
 
     #[test]
     fn test_block_headers() {
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         let resp = client.block_headers(0, 4).unwrap();
         assert_eq!(resp.count, 4);
@@ -992,7 +992,7 @@ mod test {
     fn test_script_get_balance() {
         use std::str::FromStr;
 
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         // Realistically nobody will ever spend from this address, so we can expect the balance to
         // increase over time
@@ -1008,7 +1008,7 @@ mod test {
         use bitcoin::hashes::hex::FromHex;
         use bitcoin::Txid;
 
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         // Mt.Gox hack address
         let addr = bitcoin::Address::from_str("1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF").unwrap();
@@ -1028,7 +1028,7 @@ mod test {
         use bitcoin::Txid;
         use std::str::FromStr;
 
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         // Mt.Gox hack address
         let addr = bitcoin::Address::from_str("1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF").unwrap();
@@ -1049,7 +1049,7 @@ mod test {
     fn test_batch_script_list_unspent() {
         use std::str::FromStr;
 
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         // Mt.Gox hack address
         let script_1 = bitcoin::Address::from_str("1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF")
@@ -1063,7 +1063,7 @@ mod test {
 
     #[test]
     fn test_batch_estimate_fee() {
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         let resp = client.batch_estimate_fee(vec![10, 20]).unwrap();
         assert_eq!(resp.len(), 2);
@@ -1076,7 +1076,7 @@ mod test {
         use bitcoin::hashes::hex::FromHex;
         use bitcoin::Txid;
 
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         let resp = client
             .transaction_get(
@@ -1093,7 +1093,7 @@ mod test {
         use bitcoin::hashes::hex::FromHex;
         use bitcoin::Txid;
 
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         let resp = client
             .transaction_get_raw(
@@ -1128,7 +1128,7 @@ mod test {
         use bitcoin::hashes::hex::FromHex;
         use bitcoin::Txid;
 
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         let resp = client
             .transaction_get_merkle(
@@ -1151,13 +1151,13 @@ mod test {
 
     #[test]
     fn test_ping() {
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
         client.ping().unwrap();
     }
 
     #[test]
     fn test_block_headers_subscribe() {
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
         let resp = client.block_headers_subscribe().unwrap();
 
         assert!(resp.height >= 639000);
@@ -1167,7 +1167,7 @@ mod test {
     fn test_script_subscribe() {
         use std::str::FromStr;
 
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         // Mt.Gox hack address
         let addr = bitcoin::Address::from_str("1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF").unwrap();
@@ -1178,7 +1178,7 @@ mod test {
 
     #[test]
     fn test_request_after_error() {
-        let client = RawClient::new(get_test_server()).unwrap();
+        let client = RawClient::new(get_test_server(), None).unwrap();
 
         assert!(client.transaction_broadcast_raw(&[0x00]).is_err());
         assert!(client.server_features().is_ok());
