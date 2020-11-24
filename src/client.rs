@@ -2,7 +2,7 @@
 
 use std::sync::RwLock;
 
-use log::warn;
+use log::{info, warn};
 
 use bitcoin::{Script, Txid};
 
@@ -59,9 +59,18 @@ macro_rules! impl_inner_call {
                 Err(e) => {
                     match $self.client_type.try_write() {
                         Ok(mut write_client) => {
-                            warn!("retry:{} {:?}", count, e);
+                            warn!("retry:{}/{} {:?}", count, $self.config.retry(), e);
                             errors.push(e);
-                            (*write_client) = ClientType::from_config(&$self.url, &$self.config)?;
+                            match ClientType::from_config(&$self.url, &$self.config) {
+                                Ok(new_client) => {
+                                    info!("Succesfully created new client");
+                                    *write_client = new_client;
+                                },
+                                Err(e) => {
+                                    warn!("Cannot create new client {:?}", e);
+                                }
+                            }
+
                         },
                         Err(_) => (),  // another thread is trying to retrying the client
                     }

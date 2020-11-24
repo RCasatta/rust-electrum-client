@@ -139,7 +139,10 @@ impl RawClient<ElectrumPlaintextStream> {
         let stream = match timeout {
             Some(timeout) => {
                 let socket_addr = get_one_socket_addr(socket_addrs)?;
-                TcpStream::connect_timeout(&socket_addr, timeout)?
+                let stream = TcpStream::connect_timeout(&socket_addr, timeout)?;
+                stream.set_read_timeout(Some(timeout))?;
+                stream.set_write_timeout(Some(timeout))?;
+                stream
             }
             None => TcpStream::connect(socket_addrs)?,
         };
@@ -172,6 +175,12 @@ impl RawClient<ElectrumSslStream> {
         validate_domain: bool,
         timeout: Option<Duration>,
     ) -> Result<Self, Error> {
+        debug!(
+            "new_ssl socket_addrs.domain():{:?} validate_domain:{} timeout:{:?}",
+            socket_addrs.domain(),
+            validate_domain,
+            timeout
+        );
         if validate_domain {
             socket_addrs.domain().ok_or(Error::MissingDomain)?;
         }
@@ -179,6 +188,8 @@ impl RawClient<ElectrumSslStream> {
             Some(timeout) => {
                 let socket_addr = get_one_socket_addr(socket_addrs.clone())?;
                 let stream = TcpStream::connect_timeout(&socket_addr, timeout)?;
+                stream.set_read_timeout(Some(timeout))?;
+                stream.set_write_timeout(Some(timeout))?;
                 Self::new_ssl_from_stream(socket_addrs, validate_domain, stream)
             }
             None => {
@@ -255,6 +266,12 @@ impl RawClient<ElectrumSslStream> {
         validate_domain: bool,
         timeout: Option<Duration>,
     ) -> Result<Self, Error> {
+        debug!(
+            "new_ssl socket_addrs.domain():{:?} validate_domain:{} timeout:{:?}",
+            socket_addrs.domain(),
+            validate_domain,
+            timeout
+        );
         if validate_domain {
             socket_addrs.domain().ok_or(Error::MissingDomain)?;
         }
@@ -262,6 +279,8 @@ impl RawClient<ElectrumSslStream> {
             Some(timeout) => {
                 let socket_addr = get_one_socket_addr(socket_addrs.clone())?;
                 let stream = TcpStream::connect_timeout(&socket_addr, timeout)?;
+                stream.set_read_timeout(Some(timeout))?;
+                stream.set_write_timeout(Some(timeout))?;
                 Self::new_ssl_from_stream(socket_addrs, validate_domain, stream)
             }
             None => {
