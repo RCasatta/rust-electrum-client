@@ -36,11 +36,11 @@ impl ConfigBuilder {
         }
     }
 
-    pub fn socks5(mut self, socks5_config: Socks5Config) -> Result<Self, Error> {
-        if self.config.timeout.is_some() {
+    pub fn socks5(mut self, socks5_config: Option<Socks5Config>) -> Result<Self, Error> {
+        if socks5_config.is_some() && self.config.timeout.is_some() {
             return Err(Error::BothSocksAndTimeout);
         }
-        self.config.socks5 = Some(socks5_config);
+        self.config.socks5 = socks5_config;
         Ok(self)
     }
 
