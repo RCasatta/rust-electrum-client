@@ -32,7 +32,6 @@ use stream::ClonableStream;
 
 use api::ElectrumApi;
 use batch::Batch;
-use config::Socks5Config;
 use std::time::Duration;
 use types::*;
 
@@ -169,23 +168,29 @@ impl RawClient<ElectrumSslStream> {
     /// Creates a new SSL client and tries to connect to `socket_addr`. Optionally, if
     /// `validate_domain` is `true`, validate the server's certificate.
     pub fn new_ssl<A: ToSocketAddrsDomain + Clone>(
-        socket_addr: A,
+        socket_addrs: A,
         validate_domain: bool,
         timeout: Option<Duration>,
     ) -> Result<Self, Error> {
         if validate_domain {
-            socket_addr.domain().ok_or(Error::MissingDomain)?;
+            socket_addrs.domain().ok_or(Error::MissingDomain)?;
         }
-        let stream = match timeout {
-            Some(timeout) => TcpStream::connect_timeout(socket_addr, timeout)?,
-            None => TcpStream::connect(socket_addr)?,
-        };
-        Self::new_ssl_from_stream(socket_addr.clone(), validate_domain, stream)
+        match timeout {
+            Some(timeout) => {
+                let socket_addr = get_one_socket_addr(socket_addrs.clone())?;
+                let stream = TcpStream::connect_timeout(&socket_addr, timeout)?;
+                Self::new_ssl_from_stream(socket_addrs, validate_domain, stream)
+            }
+            None => {
+                let stream = TcpStream::connect(socket_addrs.clone())?;
+                Self::new_ssl_from_stream(socket_addrs, validate_domain, stream)
+            }
+        }
     }
 
     /// Create a new SSL client using an existing TcpStream
     pub fn new_ssl_from_stream<A: ToSocketAddrsDomain>(
-        socket_addr: A,
+        socket_addrs: A,
         validate_domain: bool,
         stream: TcpStream,
     ) -> Result<Self, Error> {
@@ -193,13 +198,13 @@ impl RawClient<ElectrumSslStream> {
             SslConnector::builder(SslMethod::tls()).map_err(Error::InvalidSslMethod)?;
         // TODO: support for certificate pinning
         if validate_domain {
-            socket_addr.domain().ok_or(Error::MissingDomain)?;
+            socket_addrs.domain().ok_or(Error::MissingDomain)?;
         } else {
             builder.set_verify(SslVerifyMode::NONE);
         }
         let connector = builder.build();
 
-        let domain = socket_addr.domain().unwrap_or("NONE").to_string();
+        let domain = socket_addrs.domain().unwrap_or("NONE").to_string();
 
         let stream = connector
             .connect(&domain, stream)
@@ -253,14 +258,17 @@ impl RawClient<ElectrumSslStream> {
         if validate_domain {
             socket_addrs.domain().ok_or(Error::MissingDomain)?;
         }
-        let stream = match timeout {
+        match timeout {
             Some(timeout) => {
                 let socket_addr = get_one_socket_addr(socket_addrs.clone())?;
-                TcpStream::connect_timeout(&socket_addr, timeout)?
+                let stream = TcpStream::connect_timeout(&socket_addr, timeout)?;
+                Self::new_ssl_from_stream(socket_addrs, validate_domain, stream)
             }
-            None => TcpStream::connect(socket_addrs.clone())?,
-        };
-        Self::new_ssl_from_stream(socket_addrs, validate_domain, stream)
+            None => {
+                let stream = TcpStream::connect(socket_addrs.clone())?;
+                Self::new_ssl_from_stream(socket_addrs, validate_domain, stream)
+            }
+        }
     }
 
     /// Create a new SSL client using an existing TcpStream
@@ -303,7 +311,10 @@ impl RawClient<ElectrumProxyStream> {
     /// Creates a new socks client and tries to connect to `target_addr` using `proxy_addr` as an
     /// unauthenticated socks proxy server. The DNS resolution of `target_addr`, if required, is done
     /// through the proxy. This allows to specify, for instance, `.onion` addresses.
-    pub fn new_proxy<T: ToTargetAddr>(target_addr: T, proxy: &Socks5Config) -> Result<Self, Error> {
+    pub fn new_proxy<T: ToTargetAddr>(
+        target_addr: T,
+        proxy: &crate::Socks5Config,
+    ) -> Result<Self, Error> {
         let stream = match proxy.credentials.as_ref() {
             Some(cred) => Socks5Stream::connect_with_password(
                 &proxy.addr,
@@ -368,7 +379,7 @@ impl<S: Read + Write> RawClient<S> {
                 loop {
                     raw_resp.clear();
 
-                    if let Err(_) = reader.read_line(&mut raw_resp) {
+                    if reader.read_line(&mut raw_resp).is_err() {
                         for (_, s) in self.waiting_map.lock().unwrap().drain() {
                             s.send(ChannelMessage::Error)
                                 .expect("Unable to send ChannelMessage::Error");
@@ -383,7 +394,7 @@ impl<S: Read + Write> RawClient<S> {
                     let resp_id = resp["id"]
                         .as_str()
                         .and_then(|s| s.parse().ok())
-                        .or(resp["id"].as_u64().map(|i| i as usize));
+                        .or_else(|| resp["id"].as_u64().map(|i| i as usize));
                     match resp_id {
                         Some(resp_id) if until_message == Some(resp_id) => {
                             // We have a valid id and it's exactly the one we were waiting for!
@@ -398,7 +409,7 @@ impl<S: Read + Write> RawClient<S> {
 
                             // If the map is not empty, we select a random thread to become the
                             // new reader thread.
-                            if let Some(sender) = map.values().nth(0) {
+                            if let Some(sender) = map.values().next() {
                                 sender
                                     .send(ChannelMessage::WakeUp)
                                     .expect("Unable to WakeUp a different thread");
@@ -527,7 +538,7 @@ impl<S: Read + Write> RawClient<S> {
 
                 let queue = script_notifications
                     .get_mut(&unserialized.scripthash)
-                    .ok_or_else(|| Error::NotSubscribed(unserialized.scripthash))?;
+                    .ok_or(Error::NotSubscribed(unserialized.scripthash))?;
 
                 queue.push_back(unserialized.status);
             }
@@ -590,7 +601,7 @@ impl<T: Read + Write> ElectrumApi for RawClient<T> {
         self.increment_calls();
 
         while !missing_responses.is_empty() {
-            let req_id = *missing_responses.iter().nth(0).unwrap();
+            let req_id = *missing_responses.iter().next().unwrap();
             let resp = match self.recv(&receiver, req_id) {
                 Ok(resp) => resp,
                 Err(e) => {
@@ -701,7 +712,7 @@ impl<T: Read + Write> ElectrumApi for RawClient<T> {
             return Err(Error::AlreadySubscribed(script_hash));
         }
 
-        script_notifications.insert(script_hash.clone(), VecDeque::new());
+        script_notifications.insert(script_hash, VecDeque::new());
 
         let req = Request::new_id(
             self.last_id.fetch_add(1, Ordering::SeqCst),

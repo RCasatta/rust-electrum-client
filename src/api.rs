@@ -49,7 +49,7 @@ pub trait ElectrumApi {
     /// Batch version of [`block_header`](#method.block_header).
     ///
     /// Takes a list of `heights` of blocks and returns a list of headers.
-    fn batch_block_header<'s, I>(&self, heights: I) -> Result<Vec<BlockHeader>, Error>
+    fn batch_block_header<I>(&self, heights: I) -> Result<Vec<BlockHeader>, Error>
     where
         I: IntoIterator<Item = u32> + Clone,
     {
@@ -156,7 +156,7 @@ pub trait ElectrumApi {
     /// Batch version of [`block_header_raw`](#method.block_header_raw).
     ///
     /// Takes a list of `heights` of blocks and returns a list of block header raw bytes.
-    fn batch_block_header_raw<'s, I>(&self, heights: I) -> Result<Vec<Vec<u8>>, Error>
+    fn batch_block_header_raw<I>(&self, heights: I) -> Result<Vec<Vec<u8>>, Error>
     where
         I: IntoIterator<Item = u32> + Clone;
 
@@ -164,7 +164,7 @@ pub trait ElectrumApi {
     ///
     /// Takes a list of `numbers` of blocks and returns a list of fee required in
     /// **Satoshis per kilobyte** to confirm a transaction in the given number of blocks.
-    fn batch_estimate_fee<'s, I>(&self, numbers: I) -> Result<Vec<f64>, Error>
+    fn batch_estimate_fee<I>(&self, numbers: I) -> Result<Vec<f64>, Error>
     where
         I: IntoIterator<Item = usize> + Clone;
 

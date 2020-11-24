@@ -67,6 +67,12 @@ impl ConfigBuilder {
     }
 }
 
+impl Default for ConfigBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Socks5Config {
     pub fn new(addr: impl ToString) -> Self {
         let addr = addr.to_string().replacen("socks5://", "", 1);
@@ -91,7 +97,7 @@ impl Config {
         self.retry
     }
     pub fn timeout(&self) -> Option<Duration> {
-        self.timeout.clone()
+        self.timeout
     }
     pub fn validate_domain(&self) -> bool {
         self.validate_domain
