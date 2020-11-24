@@ -1,4 +1,4 @@
-//#![warn(missing_docs)]
+#![warn(missing_docs)]
 
 //! This library provides an extendable Bitcoin-Electrum client that supports batch calls,
 //! notifications and multiple transport methods.

@@ -9,6 +9,7 @@ use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Mutex, TryLockError};
+use std::time::Duration;
 
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
@@ -32,7 +33,6 @@ use stream::ClonableStream;
 
 use api::ElectrumApi;
 use batch::Batch;
-use std::time::Duration;
 use types::*;
 
 macro_rules! impl_batch_call {

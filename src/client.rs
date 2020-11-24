@@ -9,7 +9,6 @@ use bitcoin::{Script, Txid};
 use api::ElectrumApi;
 use batch::Batch;
 use raw_client::*;
-
 use config::Config;
 use types::*;
 
@@ -27,6 +26,8 @@ pub enum ClientType {
     Socks5(RawClient<ElectrumProxyStream>),
 }
 
+/// Generalized Electrum client that supports multiple backends. Can re-instantiate client_type if connections
+/// drops
 pub struct Client {
     client_type: RwLock<ClientType>,
     config: Config,
@@ -83,6 +84,8 @@ macro_rules! impl_inner_call {
 }
 
 impl ClientType {
+    ///  Constructor that supports multiple backends and allows configuration through
+    /// the [Config]
     pub fn from_config(url: &str, config: &Config) -> Result<Self, Error> {
         if url.starts_with("ssl://") {
             if config.socks5().is_some() {

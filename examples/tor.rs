@@ -15,7 +15,7 @@ fn main() {
     // works both with onion v2/v3 (if your Tor supports them)
     let client = Client::from_config(
         "tcp://explorerzydxu5ecjrkwceayqybizmpjjznk5izmitf2modhcusuqlid.onion:110",
-        config.clone(),
+        config,
     )
     .unwrap();
     let res = client.server_features();
